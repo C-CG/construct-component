@@ -1,4 +1,5 @@
 import arg from 'arg'
+import { constructComponent } from '../src/main'
 
 function parseArgumentsIntoOptions (rawArgs) {
   const args = arg(
@@ -19,7 +20,7 @@ function parseArgumentsIntoOptions (rawArgs) {
   }
 }
 
-export function cli (args) {
+export async function cli (args) {
   let options = parseArgumentsIntoOptions(args)
-  console.log(options)
+  await constructComponent(options)
 }
