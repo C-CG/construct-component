@@ -27,37 +27,38 @@ async function handleComponentsDirectory () {
   }
 }
 
-async function handleComponentCreation (componentExists, component) {
+async function handleFileCreation (componentName) {
+  /* Component File */
+  fs.copyFile(
+    './src/templates/class.component.jsx',
+    `./components/${componentName}/${componentName}.component.jsx`,
+    error => {
+      if (error) throw error
+    }
+  )
+  /* Styles File */
+  fs.writeFile(
+    `./components/${componentName}/${componentName}.styles.css`,
+    '',
+    error => {
+      if (error) throw error
+    }
+  )
+}
+
+async function handleComponentCreation (componentExists, componentName) {
   if (componentExists) {
     const questions = []
     questions.push({
       type: 'confirm',
       name: 'createComponent',
-      message: `component '${component}' already exists, do you want to over-write it?`
+      message: `component '${componentName}' already exists, do you want to over-write it?`
     })
     const answers = await inquirer.prompt(questions)
     return answers['createComponent']
   } else {
-    fs.mkdirSync(`./components/${component}`)
-    /* Handles file creation (needs to be moved into it's own function) */
-    fs.writeFile(
-      `./components/${component}/${component}.component.jsx`,
-      '',
-      function (error) {
-        if (error !== null) {
-          console.log(error)
-        }
-      }
-    )
-    fs.writeFile(
-      `./components/${component}/${component}.styles.css`,
-      '',
-      function (error) {
-        if (error !== null) {
-          console.log(error)
-        }
-      }
-    )
+    fs.mkdirSync(`./components/${componentName}`)
+    await handleFileCreation(componentName)
     return true
   }
 }
