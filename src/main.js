@@ -1,14 +1,16 @@
 import fs from 'fs'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
+import path from 'path'
 import { promisify } from 'util'
 
+const cwd = process.cwd()
 const access = promisify(fs.access)
 
-/* Used to handle 'components' folder creation/checking */
+/* Handles check for 'components' directory */
 async function handleComponentsDirectory () {
   try {
-    await access('./components', fs.constants.R_OK)
+    await access(`${cwd}/components`, fs.constants.R_OK)
     return true
   } catch {
     const questions = []
@@ -18,81 +20,86 @@ async function handleComponentsDirectory () {
       message:
         "'components' directory does not exist, do you want to create it?"
     })
+
     const answers = await inquirer.prompt(questions)
     if (answers['componentsDirectory']) {
       fs.mkdirSync('./components')
-      console.log(`${chalk.green.bold('DONE')}: 'components' folder created.`)
     }
     return answers['componentsDirectory']
   }
 }
 
-async function handleFileCreation (componentName) {
-  /* Component File */
-  fs.copyFile(
-    './src/templates/class.component.jsx',
-    `./components/${componentName}/${componentName}.component.jsx`,
-    error => {
-      if (error) throw error
-    }
-  )
-  /* Styles File */
-  fs.writeFile(
-    `./components/${componentName}/${componentName}.styles.css`,
-    '',
-    error => {
-      if (error) throw error
-    }
-  )
-}
-
-async function handleComponentCreation (componentExists, componentName) {
-  if (componentExists) {
-    const questions = []
-    questions.push({
-      type: 'confirm',
-      name: 'createComponent',
-      message: `component '${componentName}' already exists, do you want to over-write it?`
-    })
-    const answers = await inquirer.prompt(questions)
-    return answers['createComponent']
-  } else {
-    fs.mkdirSync(`./components/${componentName}`)
-    await handleFileCreation(componentName)
-    return true
-  }
-}
-
-export async function constructComponent (options) {
+/* Handles Q/A from Inquirer */
+async function handleInquirerQuestions () {
   try {
     var componentsDirectoryExists = await handleComponentsDirectory()
   } catch {
     console.log(
-      `${chalk.red.bold(
-        'ERROR'
-      )}: 'components' could not be created/does not exist.`
+      `${chalk.red.bold('ERROR')}: 'components' folder cannot be found`
     )
-    process.exit(1)
+  }
+  if (componentsDirectoryExists) {
+    const questions = []
+    questions.push({
+      type: 'input',
+      name: 'componentName',
+      message: 'Give your component a name:'
+    })
+    questions.push({
+      type: 'list',
+      name: 'componentType',
+      message: 'Choose what type of component you want to create:',
+      choices: ['functional', 'class']
+    })
+    questions.push({
+      type: 'list',
+      name: 'componentStyling',
+      message: 'How will your component be styled?',
+      choices: ['styled-components', 'scss', 'css', 'none']
+    })
+    const answers = await inquirer.prompt(questions)
+    return answers
+  }
+}
+
+/* Handles the 'construction' of the React component/'components/' creation */
+export async function constructComponent (options) {
+  try {
+    var answers = await handleInquirerQuestions()
+  } catch {
+    console.log(`${chalk.red.bold('ERROR')}: component could not be created.`)
   }
 
-  if (!componentsDirectoryExists) {
-    process.exit(1)
-  } else {
-    const componentExists = fs.existsSync(
-      `./components/${options.componentName}`
+  fs.mkdirSync(`./components/${answers['componentName']}`) // check if exists
+  if (answers['componentType'] === 'class') {
+    const currentFile = import.meta.url
+    const templatesDir = path.resolve(
+      new URL(currentFile).pathname,
+      '../../src/templates'
     )
-    const createComponent = await handleComponentCreation(
-      componentExists,
-      options.componentName
+    /* Component file creation */
+    fs.copyFile(
+      `${templatesDir}/class.component.jsx`,
+      `./components/${answers['componentName']}/${answers['componentName']}.component.jsx`,
+      error => {
+        if (error) throw error
+      }
     )
-    if (!createComponent) {
-      process.exit(1)
-    } else {
-      console.log(
-        `${chalk.green.bold('DONE')}: '${
-          options.componentName
-        }' component created.`
+    /* Creating style file (if needed) */
+    if (
+      answers['componentStyling'] === 'css' ||
+      answers['componentStyling'] === 'scss'
+    ) {
+      fs.writeFile(
+        `./components/${answers['componentName']}/${answers['componentName']}.styles.${answers['componentStyling']}`,
+        '',
+        error => {
+          if (error) throw error
+        }
       )
     }
+    console.log(
+      `${chalk.green.bold('DONE')}: '${answers['componentName']}' created`
+    )
   }
 }
